@@ -1,9 +1,9 @@
 # Laboratorio de Seguridad de Redes con FortiGate
 
-**Estudiante:** Edwin De Paula
-**Matrícula:** 2024-2415
-**Carrera:** Seguridad Informática — ITLA
-**Asignatura:** Seguridad de Redes
+**Estudiante:** Edwin De Paula    
+**Matrícula:** 2024-2415    
+**Carrera:** Seguridad Informática — ITLA    
+**Asignatura:** Seguridad de Redes    
 
 ---
 
