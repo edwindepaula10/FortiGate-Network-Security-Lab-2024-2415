@@ -11,7 +11,7 @@
 
 | Recurso | URL |
 |---|---|
-| Video YouTube | _pendiente_ |
+| Video YouTube | https://youtu.be/nt-jFLalOJU |
 
 ---
 
@@ -234,7 +234,7 @@ Ambos payloads son bloqueados por el perfil `WAF_WebServer` al ejecutarlos contr
 ```
 FortiGate-Network-Security-Lab-2024-2415/
 ├── docs/
-│   ├── documentacion-tecnica.pdf
+│   ├── Edwin De Paula_2024-2415_documentacion-tecnica.pdf
 │   └── screenshots/
 │       ├── topology.png
 │       ├── interfaces-resumen.png
