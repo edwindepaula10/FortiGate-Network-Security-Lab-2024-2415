@@ -1,9 +1,9 @@
 # Laboratorio de Seguridad de Redes con FortiGate
 
-**Estudiante:** Edwin De Paula    
-**Matrícula:** 2024-2415    
-**Carrera:** Seguridad Informática — ITLA    
-**Asignatura:** Seguridad de Redes    
+**Estudiante:** Edwin De Paula  
+**Matrícula:** 2024-2415  
+**Institución:** Instituto Tecnológico de las Américas (ITLA)  
+**Asignatura:** Seguridad de Redes
 
 ---
 
@@ -15,273 +15,248 @@
 
 ---
 
-## 1. Objetivo de la red
+## Objetivo
 
-Diseñar y configurar, en su totalidad por interfaz gráfica (GUI), una topología de red segura utilizando FortiGate como firewall perimetral e interno. La red debe segmentar el tráfico entre una LAN de usuarios y una LAN de servidores, permitir salida controlada a Internet mediante NAT, y aplicar múltiples capas de seguridad: control de acceso por servicio, filtrado de aplicaciones, filtrado web, detección de escaneo de red (IPS/DoS) y protección de aplicaciones web (WAF).
+Diseñar y configurar, en su totalidad por interfaz gráfica (GUI), una topología de red segura utilizando FortiGate como firewall perimetral e interno. La red segmenta el tráfico entre una LAN de usuarios y una LAN de servidores, permite salida controlada a Internet mediante NAT, y aplica múltiples capas de seguridad: control de acceso por servicio, filtrado de aplicaciones, filtrado web, detección de escaneo de red y protección de aplicaciones web (WAF).
 
 El direccionamiento IP de toda la topología se derivó de la matrícula del estudiante (2024-2415), utilizando la red base `10.24.15.0/24`.
 
 ---
 
-## 2. Topología de red
+## Topología
 
-**[SCREENSHOT AQUÍ: diagrama de topología con nombre y matrícula visibles]**
-`![Topología](screenshots/00-topologia.png)`
+![Topología del laboratorio](docs/screenshots/topology.png)
 
-### 2.1 Descripción de la topología
-
-| Nodo | Rol | Conexión |
-|---|---|---|
-| Kali Linux | Acceso a GUI del FortiGate / máquina de pruebas de escaneo | port1 (WAN) vía Cloud1 (VMware vmnet8) |
-| FortiGate-VM64-KVM | Firewall / gateway | port1 (WAN), port2 (LAN Usuarios), port3 (LAN Servidores) |
-| SW1 | Switch LAN Usuarios | port2 ↔ Linux-Desktop |
-| Linux-Desktop | Cliente de pruebas (DHCP, navegación, escaneo nmap) | SW1 |
-| SW2 | Switch LAN Servidores | port3 ↔ web Server |
-| web Server (Metasploitable2 + DVWA) | Servidor web de destino | SW2 |
-
-### 2.2 Direccionamiento IP
-
-| Segmento / Interfaz | Red | Máscara | Gateway | Rango DHCP |
-|---|---|---|---|---|
-| WAN (port1) | Asignada por DHCP (vmnet8) | /24 | Aprendido automáticamente | — |
-| LAN Usuarios (port2) | 10.24.15.0/25 | 255.255.255.128 | 10.24.15.1 | 10.24.15.10 – 10.24.15.100 |
-| LAN Servidores (port3) | 10.24.15.128/28 | 255.255.255.240 | 10.24.15.129 | No aplica (estática) |
-| web Server | 10.24.15.130 | 255.255.255.240 | 10.24.15.129 | Estática |
-
-**Lógica de direccionamiento:** los dos últimos octetos (`24.15`) se derivan del año de ingreso (24) y los últimos dos dígitos de la matrícula (15) → red base `10.24.15.0/24`, subdividida en /25 para usuarios y /28 para servidores.
-
----
-
-## 3. Configuración de interfaces
-
-Todas las interfaces se configuraron desde **Network > Interfaces** en la GUI del FortiGate.
-
-**[SCREENSHOT AQUÍ: tabla de interfaces con IP/Netmask, Administrative Access y DHCP Ranges]**
-`![Interfaces](screenshots/01-interfaces-resumen.png)`
-
-**[SCREENSHOT AQUÍ: detalle de configuración de port2]**
-`![Port2](screenshots/02-port2-config.png)`
-
-**[SCREENSHOT AQUÍ: detalle de configuración de port3]**
-`![Port3](screenshots/03-port3-config.png)`
-
-- `port1`: modo DHCP, conectado a la red externa (WAN).
-- `port2`: IP estática `10.24.15.1/25`, rol LAN, DHCP Server habilitado.
-- `port3`: IP estática `10.24.15.129/28`, rol LAN, sin DHCP (segmento de servidores con IP fija).
-
-### 3.1 DHCP Server — LAN Usuarios
-
-Configurado en **Network > DHCP Server**, asociado a `port2`.
-
-**[SCREENSHOT AQUÍ: configuración del DHCP Server — rango, gateway, DNS]**
-`![DHCP Server](screenshots/04-dhcp-server.png)`
-
-- Rango: `10.24.15.10` – `10.24.15.100`
-- Gateway entregado: `10.24.15.1`
-- DNS: heredado del sistema
-
----
-
-## 4. Ruta por defecto
-
-El FortiGate aprendió automáticamente la ruta por defecto a través del DHCP de `port1`, visible en **Network > Static Routes**.
-
-**[SCREENSHOT AQUÍ: tabla de Static Routes mostrando 0.0.0.0/0 vía port1]**
-`![Ruta por defecto](screenshots/05-static-route.png)`
-
-| Destino | Gateway | Interfaz | Estado |
+| Dispositivo | Interfaz | Dirección IP | Descripción |
 |---|---|---|---|
-| 0.0.0.0/0 | (asignado por DHCP en port1) | port1 | Enabled |
+| Kali Linux | eth0 | DHCP (vmnet8) | Acceso a GUI del FortiGate / equipo de pruebas de escaneo |
+| FortiGate | port1 | DHCP | WAN |
+| FortiGate | port2 | 10.24.15.1/25 | LAN Usuarios |
+| FortiGate | port3 | 10.24.15.129/28 | LAN Servidores |
+| Linux-Desktop | eth0 | DHCP (10.24.15.10-100) | Cliente de pruebas, LAN Usuarios |
+| web Server (Metasploitable2 + DVWA) | eth0 | 10.24.15.130/28 | Servidor web, LAN Servidores |
 
 ---
 
-## 5. NAT y acceso a Internet
+## Parámetros de Configuración
 
-Política de firewall que permite la salida de la LAN de Usuarios hacia Internet, con NAT de origen habilitado.
+### Interfaces
 
-**[SCREENSHOT AQUÍ: política Usuarios_a_Internet con NAT activado]**
-`![Política NAT](screenshots/06-policy-internet-nat.png)`
+| Parámetro | Valor |
+|---|---|
+| port2 - Alias | LAN_Usuarios |
+| port2 - IP/Netmask | 10.24.15.1 / 255.255.255.128 |
+| port2 - Role | LAN |
+| port3 - Alias | LAN_Servidores |
+| port3 - IP/Netmask | 10.24.15.129 / 255.255.255.240 |
+| port3 - Role | LAN |
 
-**Configuración:**
-- **Nombre:** `Usuarios_a_Internet`
-- **Incoming Interface:** port2
-- **Outgoing Interface:** port1
-- **Source / Destination:** all
-- **Service:** ALL
-- **Action:** ACCEPT
-- **NAT:** Enable — Use Outgoing Interface Address
-- **Log Allowed Traffic:** habilitado
+### DHCP Server (port2)
 
-**[SCREENSHOT AQUÍ: prueba de ping desde Linux-Desktop hacia 8.8.8.8 exitosa]**
-`![Prueba Internet](screenshots/07-ping-internet-ok.png)`
+| Parámetro | Valor |
+|---|---|
+| Rango | 10.24.15.10 - 10.24.15.100 |
+| Netmask | 255.255.255.128 |
+| Default Gateway | 10.24.15.1 |
+| DNS Server | Same as System DNS |
 
----
+### Ruta por Defecto
 
-## 6. Control de tráfico LAN Usuarios → LAN Servidores (solo HTTP)
+| Parámetro | Valor |
+|---|---|
+| Destination | 0.0.0.0/0 |
+| Interface | port1 |
+| Gateway | Aprendido automáticamente por DHCP |
 
-Se implementaron dos políticas explícitas, en orden estricto, para permitir únicamente HTTP y bloquear el resto de forma explícita.
+### Política NAT - Usuarios a Internet
 
-**[SCREENSHOT AQUÍ: lista de políticas mostrando el orden HTTP_Allow arriba de DENY_ALL]**
-`![Orden de políticas](screenshots/08-policy-order.png)`
+| Parámetro | Valor |
+|---|---|
+| Nombre | Usuarios_a_Internet |
+| Incoming / Outgoing | port2 / port1 |
+| Service | ALL |
+| NAT | Enable - Use Outgoing Interface Address |
 
-### 6.1 Política de permiso (HTTP)
+### Políticas LAN Usuarios → LAN Servidores
 
-- **Nombre:** `Usuarios_a_Servidores_HTTP_Allow`
-- **Incoming Interface:** port2
-- **Outgoing Interface:** port3
-- **Service:** HTTP
-- **Action:** ACCEPT
-- **Inspection Mode:** Proxy-based (requerido para habilitar WAF, ver sección 10)
-
-### 6.2 Política de bloqueo explícito
-
-- **Nombre:** `Usuarios_a_Servidores_DENY_ALL`
-- **Incoming Interface:** port2
-- **Outgoing Interface:** port3
-- **Service:** ALL
-- **Action:** DENY
-- **Log Violation Traffic:** habilitado
-
-**[SCREENSHOT AQUÍ: HTTP cargando correctamente desde el navegador hacia 10.24.15.130]**
-`![HTTP permitido](screenshots/09-http-allowed.png)`
-
-**[SCREENSHOT AQUÍ: ping/ssh fallando hacia 10.24.15.130]**
-`![Resto bloqueado](screenshots/10-resto-bloqueado.png)`
-
----
-
-## 7. Application Control — Redes sociales y llamadas de WhatsApp
-
-**Perfil:** `Bloqueo_RedesSociales_WhatsApp` (Security Profiles > Application Control)
-
-**[SCREENSHOT AQUÍ: categoría Social.Media en modo Block]**
-`![Bloqueo redes sociales](screenshots/11-appctrl-socialmedia.png)`
-
-**[SCREENSHOT AQUÍ: Application Override con firma WhatsApp_VoIP.Call en Block]**
-`![Bloqueo WhatsApp](screenshots/12-appctrl-whatsapp.png)`
-
-- **Categoría bloqueada:** `Social.Media` (cubre Facebook, Instagram, X, entre otras).
-- **Firma específica bloqueada:** `WhatsApp_VoIP.Call` — se optó por bloquear la firma granular de llamadas en lugar de la aplicación completa, para cumplir exactamente el requisito ("bloquear llamadas") sin afectar la mensajería de texto.
-- Perfil aplicado a la política `Usuarios_a_Internet`, con SSL Inspection (`certificate-inspection`) habilitada, necesaria porque estas aplicaciones operan sobre HTTPS.
-
-**[SCREENSHOT AQUÍ: intento de acceso a Facebook/Instagram bloqueado por FortiGuard]**
-`![Prueba de bloqueo redes sociales](screenshots/13-test-socialmedia.png)`
-
----
-
-## 8. Web Filter — Bloqueo de itla.edu.do y subdominios
-
-**Perfil:** `Bloqueo_ITLA` (Security Profiles > Web Filter > Static URL Filter)
-
-**[SCREENSHOT AQUÍ: entradas del Static URL Filter con itla.edu.do y *.itla.edu.do en Block]**
-`![Static URL Filter](screenshots/14-webfilter-itla.png)`
-
-| URL | Tipo | Acción |
+| Parámetro | Usuarios_a_Servidores_HTTP_Allow | Usuarios_a_Servidores_DENY_ALL |
 |---|---|---|
-| `itla.edu.do` | Wildcard | Block |
-| `*.itla.edu.do` | Wildcard | Block |
+| Incoming / Outgoing | port2 / port3 | port2 / port3 |
+| Service | HTTP | ALL |
+| Action | ACCEPT | DENY |
+| Inspection Mode | Proxy-based | Flow-based |
+| Orden | 1 (arriba) | 2 (abajo) |
 
-**[SCREENSHOT AQUÍ: intento de acceso a itla.edu.do bloqueado]**
-`![Prueba de bloqueo ITLA](screenshots/15-test-itla.png)`
+### Application Control - Bloqueo_RedesSociales_WhatsApp
+
+| Parámetro | Valor |
+|---|---|
+| Categoría | Social.Media → Block |
+| Application Override | WhatsApp_VoIP.Call → Block |
+| Aplicado a | Usuarios_a_Internet |
+
+### Web Filter - Bloqueo_ITLA
+
+| Parámetro | Valor |
+|---|---|
+| URL 1 | itla.edu.do (Wildcard) → Block |
+| URL 2 | *.itla.edu.do (Wildcard) → Block |
+| Aplicado a | Usuarios_a_Internet |
+
+### DoS Policy - AntiScan_Servidores
+
+| Parámetro | Valor |
+|---|---|
+| Incoming Interface | port2 |
+| Anomalías | tcp_port_scan, icmp_sweep → Block |
+| Threshold | Ajustado por debajo del valor por defecto |
+
+### WAF - WAF_WebServer
+
+| Parámetro | Valor |
+|---|---|
+| Categorías | SQL Injection, Cross Site Scripting (XSS) |
+| Sensibilidad | High |
+| Aplicado a | Usuarios_a_Servidores_HTTP_Allow |
 
 ---
 
-## 9. Detección y bloqueo de escáneres de red
+## Explicación de la Configuración
 
-Implementado mediante **DoS Policy** (Policy & Objects > DoS Policy), que detecta patrones de escaneo por anomalía de tráfico en lugar de depender de firmas IPS descargadas de FortiGuard.
+### Segmentación y NAT
 
-**Perfil:** `AntiScan_Servidores`
+El FortiGate separa el tráfico en tres interfaces: `port1` como WAN, `port2` como LAN de Usuarios (/25, con DHCP) y `port3` como LAN de Servidores (/28, con IP estática). La política `Usuarios_a_Internet` habilita NAT de origen (`Use Outgoing Interface Address`), traduciendo las IPs privadas de la LAN de Usuarios a la IP pública asignada en `port1` para poder salir a Internet.
 
-**[SCREENSHOT AQUÍ: configuración de la DoS Policy con tcp_port_scan, icmp_sweep en Block]**
-`![DoS Policy](screenshots/16-dos-policy-config.png)`
+### Control de tráfico HTTP-only
 
-- **Incoming Interface:** port2
-- **Anomalías activadas:** `tcp_port_scan`, `icmp_sweep` (acción: Block)
-- **Threshold ajustado:** reducido respecto al valor por defecto para detectar escaneos de bajo volumen típicos de un entorno de laboratorio.
+Entre LAN Usuarios y LAN Servidores se crearon dos políticas evaluadas en orden: primero `Usuarios_a_Servidores_HTTP_Allow` (permite únicamente el servicio HTTP) y después `Usuarios_a_Servidores_DENY_ALL` (bloquea explícitamente cualquier otro servicio). FortiGate evalúa las políticas de arriba hacia abajo y aplica la primera coincidencia, por lo que el orden es crítico: si `DENY_ALL` quedara primero, bloquearía también el HTTP permitido.
 
-### Prueba de escaneo (nmap desde Linux-Desktop)
+### Application Control
 
-```bash
+Se bloqueó la categoría `Social.Media` completa para cubrir el acceso a redes sociales, y de forma independiente se bloqueó la firma granular `WhatsApp_VoIP.Call` dentro de Application Overrides. Se optó por la firma específica de llamadas en lugar de bloquear la aplicación WhatsApp completa, para cumplir exactamente el requisito de bloquear llamadas sin afectar la mensajería de texto.
+
+### Web Filter
+
+El Static URL Filter usa entradas tipo `Wildcard` para `itla.edu.do` y `*.itla.edu.do`, cubriendo tanto el dominio raíz como cualquier subdominio.
+
+### Detección de escaneo (DoS Policy)
+
+En lugar de depender de firmas IPS descargadas de FortiGuard (no siempre disponibles en un entorno de laboratorio aislado), se utilizó una DoS Policy que detecta el patrón de escaneo por anomalía de tráfico (volumen de puertos/hosts tocados en poco tiempo). La acción `clear_session` corta la sesión activa en cuanto se identifica el patrón.
+
+### WAF
+
+WAF es una función exclusiva del modo de inspección Proxy-based, que en FortiOS 6.4.x se configura de forma individual por política (no de forma global). Se activó Proxy-based únicamente en `Usuarios_a_Servidores_HTTP_Allow` y se aplicó el perfil con las categorías de SQL Injection y XSS en nivel de sensibilidad "High".
+
+---
+
+## Verificación
+
+### Interfaces y DHCP
+
+![Resumen de interfaces](docs/screenshots/interfaces-resumen.png)
+
+Confirma `port2` con `10.24.15.1/255.255.255.128` y rango DHCP `10.24.15.10-10.24.15.100`, y `port3` con `10.24.15.129/255.255.255.240`.
+
+### Ruta por defecto
+
+![Static Routes](docs/screenshots/static-route.png)
+
+La ruta `0.0.0.0/0` aparece habilitada con gateway aprendido automáticamente vía `port1`.
+
+### NAT y acceso a Internet
+
+```
+ping 8.8.8.8
+```
+
+![Prueba de conectividad a Internet](docs/screenshots/ping-internet.png)
+
+Respuesta exitosa desde Linux-Desktop, confirma NAT funcionando en la política `Usuarios_a_Internet`.
+
+### Política HTTP-only
+
+```
+curl http://10.24.15.130
+ping 10.24.15.130
+```
+
+![HTTP permitido](docs/screenshots/http-allowed.png)
+![Resto del tráfico bloqueado](docs/screenshots/resto-bloqueado.png)
+
+El HTTP carga correctamente; el ping y cualquier otro servicio hacia el servidor son descartados por `Usuarios_a_Servidores_DENY_ALL`.
+
+### Bloqueo de redes sociales
+
+![Bloqueo de red social](docs/screenshots/test-socialmedia.png)
+
+Intento de acceso a Facebook/Instagram interceptado por la página de bloqueo de FortiGuard.
+
+### Bloqueo de itla.edu.do
+
+![Bloqueo de ITLA](docs/screenshots/test-itla.png)
+
+### Detección de escaneo de red
+
+```
 nmap -sS -Pn 10.24.15.130
 ```
 
-**[SCREENSHOT AQUÍ: log de Anomaly mostrando tcp_port_scan desde 10.24.15.10, acción clear_session]**
-`![Detección de escaneo](screenshots/17-dos-log.png)`
+![Log de detección de escaneo](docs/screenshots/dos-log.png)
 
 | Fecha/Hora | Severidad | Origen | Protocolo | Acción | Ataque |
 |---|---|---|---|---|---|
 | — | Alta | 10.24.15.10 | TCP (6) | clear_session | tcp_port_scan |
 
----
+### WAF - SQL Injection y XSS (DVWA)
 
-## 10. WAF (Web Application Firewall) al servidor Web
-
-Requiere que la política `Usuarios_a_Servidores_HTTP_Allow` opere en **modo de inspección Proxy-based** (en FortiOS 6.4.x el modo de inspección se configura por política individual, no de forma global).
-
-**Perfil:** `WAF_WebServer` (Security Profiles > Web Application Firewall)
-
-**[SCREENSHOT AQUÍ: perfil WAF con categorías SQL Injection y XSS en modo Block, nivel High]**
-`![Perfil WAF](screenshots/18-waf-profile.png)`
-
-- **Categorías bloqueadas:** SQL Injection, Cross Site Scripting (XSS) — nivel de sensibilidad **High**.
-- **Aplicado a:** política `Usuarios_a_Servidores_HTTP_Allow`.
-
-### Pruebas realizadas contra DVWA (`http://10.24.15.130/dvwa/`)
-
-**SQL Injection:**
 ```
 1' OR '1'='1
-```
-
-**[SCREENSHOT AQUÍ: bloqueo de SQL Injection en DVWA]**
-`![Bloqueo SQLi](screenshots/19-waf-sqli-block.png)`
-
-**Cross Site Scripting (XSS):**
-```
 <script>alert('test')</script>
 ```
 
-**[SCREENSHOT AQUÍ: bloqueo de XSS en DVWA]**
-`![Bloqueo XSS](screenshots/20-waf-xss-block.png)`
+![Bloqueo SQL Injection](docs/screenshots/waf-sqli-block.png)
+![Bloqueo XSS](docs/screenshots/waf-xss-block.png)
+![Log de WAF](docs/screenshots/waf-log.png)
 
-**Nota técnica:** con el nivel de seguridad de DVWA en "Medium", la sanitización parcial de la propia aplicación camuflaba el patrón del ataque lo suficiente como para que la firma WAF no lo reconociera. Al subir DVWA a nivel "High", el payload llega sin modificar al servidor y la firma WAF lo detecta correctamente. Esto evidencia la diferencia entre protección a nivel de aplicación y protección perimetral.
-
-**[SCREENSHOT AQUÍ: log de Web Application Firewall mostrando ambos eventos bloqueados]**
-`![Log WAF](screenshots/21-waf-log.png)`
+Ambos payloads son bloqueados por el perfil `WAF_WebServer` al ejecutarlos contra DVWA en nivel de seguridad "High".
 
 ---
 
-## 11. Limitaciones conocidas del entorno
+## Limitaciones Conocidas del Entorno
 
-- **Acceso administrativo HTTPS a la GUI:** se identificó un bug conocido de corrupción de paquetes TLS en el vNIC `e1000` emulado por VMware/PNetLab, que producía el error `SSL_ERROR_RX_RECORD_TOO_LONG` al acceder por HTTPS. Se utilizó HTTP (`allowaccess http`) para la administración durante el laboratorio, documentando esta limitación del entorno virtual.
-- **Prueba en vivo de llamada de WhatsApp:** se intentó desplegar un nodo Windows 10 en PNetLab para instalar WhatsApp Desktop y demostrar la llamada bloqueada en tiempo real. La imagen disponible presentó un error de arranque (`0xc000000f`), probablemente por incompatibilidad de modo de arranque (UEFI/GPT) con la emulación BIOS Legacy del template QEMU de PNetLab. Dado el alcance de tiempo del laboratorio, se optó por no continuar troubleshooting de este componente aislado. El bloqueo de llamadas de WhatsApp queda demostrado mediante la firma `WhatsApp_VoIP.Call` configurada en modo Block dentro del perfil de Application Control (ver sección 7), verificable en la configuración aunque no se ejecutó una llamada real.
-
----
-
-## 12. Credenciales de laboratorio
-
-> Únicamente se documentan credenciales de servicios con valores por defecto públicamente conocidos (Metasploitable, DVWA). La contraseña de administrador del FortiGate **no se incluye** en este documento por buenas prácticas de seguridad.
-
-| Servicio | Usuario | Password |
-|---|---|---|
-| Metasploitable2 (consola) | `msfadmin` | `msfadmin` |
-| DVWA (web) | `admin` | `password` |
-| FortiGate GUI | `admin` | *(no documentada, ver nota anterior)* |
+- **Acceso administrativo HTTPS a la GUI:** se identificó un bug de corrupción de paquetes TLS en el vNIC `e1000` emulado por VMware/PNetLab (`SSL_ERROR_RX_RECORD_TOO_LONG`). Se utilizó HTTP para la administración durante el laboratorio.
+- **Prueba en vivo de llamada de WhatsApp:** la imagen de Windows 10 disponible presentó un error de arranque (`0xc000000f`) por incompatibilidad de modo de arranque con la emulación del template QEMU de PNetLab. El bloqueo de llamadas de WhatsApp queda demostrado mediante la firma `WhatsApp_VoIP.Call` en modo Block (ver Application Control), sin ejecutar una llamada real.
 
 ---
 
-## 13. Estructura del repositorio
+## Archivos del Repositorio
 
 ```
 FortiGate-Network-Security-Lab-2024-2415/
-├── README.md
-├── documentacion-tecnica.pdf
-├── screenshots/
-│   ├── 00-topologia.png
-│   ├── 01-interfaces-resumen.png
-│   └── ...
-└── video/
-    └── enlace-video.md   (o el video embebido/enlazado si el tamaño lo permite)
+├── docs/
+│   ├── documentacion-tecnica.pdf
+│   └── screenshots/
+│       ├── topology.png
+│       ├── interfaces-resumen.png
+│       ├── static-route.png
+│       ├── ping-internet.png
+│       ├── http-allowed.png
+│       ├── resto-bloqueado.png
+│       ├── test-socialmedia.png
+│       ├── test-itla.png
+│       ├── dos-log.png
+│       ├── waf-sqli-block.png
+│       ├── waf-xss-block.png
+│       └── waf-log.png
+└── README.md
 ```
 
 ---
+
+## Herramientas Utilizadas
+
+- PNetLab — Plataforma de emulación de red
+- FortiGate-VM64-KVM (FortiOS 6.4.6) — Firewall emulado
+- Kali Linux — Acceso a GUI y pruebas de escaneo (nmap)
+- Metasploitable2 + DVWA — Servidor web vulnerable para pruebas de WAF
+- VMware Workstation — Virtualización del servidor PNetLab
