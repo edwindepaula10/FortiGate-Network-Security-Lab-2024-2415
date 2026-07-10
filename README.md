@@ -7,6 +7,14 @@
 
 ---
 
+## Video
+
+| Recurso | URL |
+|---|---|
+| Video YouTube | _pendiente_ |
+
+---
+
 ## 1. Objetivo de la red
 
 Diseñar y configurar, en su totalidad por interfaz gráfica (GUI), una topología de red segura utilizando FortiGate como firewall perimetral e interno. La red debe segmentar el tráfico entre una LAN de usuarios y una LAN de servidores, permitir salida controlada a Internet mediante NAT, y aplicar múltiples capas de seguridad: control de acceso por servicio, filtrado de aplicaciones, filtrado web, detección de escaneo de red (IPS/DoS) y protección de aplicaciones web (WAF).
