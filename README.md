@@ -222,13 +222,6 @@ Ambos payloads son bloqueados por el perfil `WAF_WebServer` al ejecutarlos contr
 
 ---
 
-## Limitaciones Conocidas del Entorno
-
-- **Acceso administrativo HTTPS a la GUI:** se identificó un bug de corrupción de paquetes TLS en el vNIC `e1000` emulado por VMware/PNetLab (`SSL_ERROR_RX_RECORD_TOO_LONG`). Se utilizó HTTP para la administración durante el laboratorio.
-- **Prueba en vivo de llamada de WhatsApp:** la imagen de Windows 10 disponible presentó un error de arranque (`0xc000000f`) por incompatibilidad de modo de arranque con la emulación del template QEMU de PNetLab. El bloqueo de llamadas de WhatsApp queda demostrado mediante la firma `WhatsApp_VoIP.Call` en modo Block (ver Application Control), sin ejecutar una llamada real.
-
----
-
 ## Archivos del Repositorio
 
 ```
